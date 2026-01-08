@@ -40,3 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 pg_data/
+
+.next/
+out/
+build/
+dist/
+node_modules/
