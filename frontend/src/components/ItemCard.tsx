@@ -18,7 +18,6 @@ export default function ItemCard({ item, onAddToCart }: ItemCardProps) {
       {/* Image Area placeholder */}
       <div className="h-40 bg-slate-50 rounded-xl mb-4 flex items-center justify-center relative group-hover:scale-[1.02] transition-transform duration-300 border border-slate-100">
         <span className="text-4xl drop-shadow-sm filter grayscale group-hover:grayscale-0 transition-all duration-500">
-          📦
         </span>
         {/* Stock Label Overlay */}
         <div className="absolute bottom-2 right-2">
@@ -40,7 +39,7 @@ export default function ItemCard({ item, onAddToCart }: ItemCardProps) {
               {item.name}
             </h3>
             <p className="text-xs text-slate-400 font-mono mt-1 flex items-center gap-1">
-              📍 {item.location}
+              {item.location}
             </p>
           </div>
         </div>

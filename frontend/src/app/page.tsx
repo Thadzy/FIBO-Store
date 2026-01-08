@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import ItemCard from "@/components/ItemCard";
-import { Item } from "@/types"; // ตรวจสอบให้แน่ใจว่าไฟล์ types/index.ts มีอยู่จริง
+import { Item } from "@/types";
 import CheckoutModal from "@/components/CheckoutModal";
 import CartSidebar from "@/components/CartSidebar";
+import { useSession, signIn } from "next-auth/react"; // Import Auth Hooks
 
 // 1. สร้าง Type สำหรับของในตะกร้า (สืบทอดมาจาก Item แต่เพิ่ม borrow_qty)
 interface CartItem extends Item {
@@ -12,6 +13,8 @@ interface CartItem extends Item {
 }
 
 export default function Home() {
+  const { data: session } = useSession(); // ดึง Session มาใช้
+  
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   
@@ -23,7 +26,7 @@ export default function Home() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- Fetch Items ---
+  // --- Fetch Items (ทำงานครั้งเดียวตอนโหลดหน้า) ---
   useEffect(() => {
     const fetchItems = async () => {
       try {
@@ -46,7 +49,6 @@ export default function Home() {
   }, []);
 
   // --- Logic: Search / Filter ---
-  // กรองรายการสินค้าตามคำค้นหา (ชื่อ หรือ สเปก)
   const filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     JSON.stringify(item.specifications).toLowerCase().includes(searchTerm.toLowerCase())
@@ -76,7 +78,7 @@ export default function Home() {
       }
     });
     
-    // เปิด Sidebar ทันทีที่กดหยิบใส่ตะกร้า (User Experience)
+    // เปิด Sidebar ทันทีที่กดหยิบใส่ตะกร้า
     setIsCartOpen(true);
   };
 
@@ -91,21 +93,29 @@ export default function Home() {
     returnDate: string;
     purpose: string;
   }) => {
+    // 3. เช็คว่า Login หรือยัง?
+    if (!session || !session.user) {
+      alert("กรุณา Login ก่อนทำการเบิกอุปกรณ์!");
+      signIn("google"); // เด้งไปหน้า Login ให้เลย
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // 1. เตรียมข้อมูล Payload
+      // 4. เปลี่ยน Payload: ส่ง Email แทน User ID
       const payload = {
-        user_id: 1, // Hardcode ไว้ก่อน (รอทำระบบ Login)
+        user_email: session.user.email, // ส่ง Email ไปเช็ค/สร้าง user ที่ backend
+        user_name: session.user.name || "Unknown Student",
         pickup_date: formData.pickupDate,
         due_date: formData.returnDate,
         purpose: formData.purpose,
         items: cart.map((item) => ({
-          item_id: Number(item.item_id), // แปลง ID เป็น number ตาม Spec Backend
+          item_id: Number(item.item_id),
           quantity: item.borrow_qty,
         })),
       };
 
-      // 2. ยิง API POST
+      // ยิง API POST
       const res = await fetch("http://127.0.0.1:8000/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,16 +127,16 @@ export default function Home() {
         throw new Error(errorData.detail || "การจองล้มเหลว");
       }
 
-      // 3. สำเร็จ
-      alert("🎉 จองสำเร็จ! กรุณารอการอนุมัติ");
-      setCart([]); // ล้างตะกร้า
-      setIsCartOpen(false); // ปิด Sidebar
-      setIsCheckoutModalOpen(false); // ปิด Modal
+      // 5. ถ้าสำเร็จ
+      alert("จองสำเร็จ! กรุณารอการอนุมัติ");
+      setCart([]); 
+      setIsCartOpen(false); 
+      setIsCheckoutModalOpen(false); 
 
       // รีโหลดหน้าเว็บเพื่อให้สต็อกอัปเดตทันที
       window.location.reload();
     } catch (error) {
-      alert(`❌ เกิดข้อผิดพลาด: ${error}`);
+      alert(`เกิดข้อผิดพลาด: ${error}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -150,7 +160,7 @@ export default function Home() {
           <>
             {filteredItems.length === 0 ? (
                <div className="text-center text-gray-400 mt-10">
-                  <p className="text-2xl">🔍</p>
+                  <p className="text-2xl"></p>
                   <p>ไม่พบอุปกรณ์ที่ค้นหา</p>
                </div>
             ) : (
@@ -159,7 +169,6 @@ export default function Home() {
                   <ItemCard
                     key={item.item_id}
                     item={item}
-                    // ส่ง function ที่เขียน logic ไว้แล้วลงไป
                     onAddToCart={handleBorrowClick} 
                   />
                 ))}

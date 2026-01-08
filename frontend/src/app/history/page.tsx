@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
+import { useSession } from "next-auth/react"; // import
 
 interface HistoryItem {
   name: string;
@@ -18,26 +19,31 @@ interface BookingHistory {
 }
 
 export default function HistoryPage() {
+  const { data: session } = useSession(); // 1. ดึงข้อมูล Session
   const [history, setHistory] = useState<BookingHistory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // ดึงข้อมูลประวัติ (Hardcode User ID = 1 ไว้ก่อน)
     const fetchHistory = async () => {
+      // 2. เช็คก่อนว่ามีอีเมลไหม? (ถ้ายังไม่ Login หรือ Session ยังไม่มา ให้รอไปก่อน)
+      if (!session?.user?.email) return;
+
       try {
-        const res = await fetch("http://127.0.0.1:8000/my-bookings/1");
+        // 3. แก้ URL: ส่ง email ไปถาม Backend แทน User ID
+        const res = await fetch(`http://127.0.0.1:8000/my-bookings?email=${session.user.email}`);
+        
         if (!res.ok) throw new Error("Failed to fetch history");
         const data = await res.json();
         setHistory(data);
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching history:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchHistory();
-  }, []);
+  }, [session]); // 4. ใส่ session เป็น Dependency (พอ Login เสร็จ useEffect จะทำงานทันที)
 
   // ฟังก์ชันเลือกสีป้ายสถานะ
   const getStatusBadge = (status: string) => {
@@ -45,20 +51,26 @@ export default function HistoryPage() {
       case "Approved":
         return (
           <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
-            อนุมัติแล้ว ✅
+            อนุมัติแล้ว
           </span>
         );
       case "Rejected":
         return (
           <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-200">
-            ไม่อนุมัติ ❌
+            ไม่อนุมัติ
+          </span>
+        );
+      case "Returned":
+        return (
+          <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-200">
+            คืนแล้ว
           </span>
         );
       case "Pending":
       default:
         return (
           <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200">
-            รออนุมัติ ⏳
+            รออนุมัติ
           </span>
         );
     }
@@ -75,12 +87,15 @@ export default function HistoryPage() {
 
       <main className="max-w-4xl mx-auto p-6 md:p-10">
         <h1 className="text-3xl font-black text-blue-900 mb-2">
-          📜 ประวัติการเบิกอุปกรณ์
+          ประวัติการเบิกอุปกรณ์
         </h1>
         <p className="text-slate-500 mb-8">รายการคำขอทั้งหมดของคุณ</p>
 
-        {loading ? (
-          <p className="text-center text-slate-400 mt-10">Loading history...</p>
+        {/* เช็ค loading หรือถ้ายังไม่ Login ให้แสดง loading ไปก่อน */}
+        {loading && !history.length ? (
+          <p className="text-center text-slate-400 mt-10">
+             {session ? "Loading history..." : "Please sign in to view history"}
+          </p>
         ) : history.length === 0 ? (
           <div className="text-center bg-white p-10 rounded-2xl shadow-sm border border-slate-200">
             <span className="text-4xl block mb-4">📭</span>
@@ -108,7 +123,7 @@ export default function HistoryPage() {
                     {getStatusBadge(booking.status)}
                   </div>
                   <div className="text-xs text-slate-500 font-medium">
-                    📅 รับของ: {booking.pickup_date} | คืน:{" "}
+                    รับของ: {booking.pickup_date} | คืน:{" "}
                     {booking.return_date}
                   </div>
                 </div>
@@ -126,7 +141,7 @@ export default function HistoryPage() {
 
                   <div className="bg-blue-50/30 rounded-lg p-4 border border-blue-50">
                     <p className="text-xs font-bold text-blue-900 mb-3 flex items-center gap-2">
-                      📦 รายการอุปกรณ์
+                      รายการอุปกรณ์
                       <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">
                         {booking.items.length} รายการ
                       </span>

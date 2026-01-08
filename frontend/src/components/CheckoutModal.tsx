@@ -26,7 +26,7 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
         {/* Header */}
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
           <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-            📝 รายละเอียดการเบิก
+            รายละเอียดการเบิก
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-red-500">
             ✕
@@ -84,7 +84,7 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
               disabled={loading}
               className="flex-1 py-2.5 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 shadow-lg shadow-orange-200 disabled:bg-slate-300 disabled:shadow-none transition-all"
             >
-              {loading ? "กำลังบันทึก..." : "ยืนยันการเบิก ✅"}
+              {loading ? "กำลังบันทึก..." : "ยืนยันการเบิก"}
             </button>
           </div>
         </form>

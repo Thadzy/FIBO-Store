@@ -35,7 +35,7 @@ export default function CartSidebar({
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            🛒 Your Requisition
+            Your Requisition
             <span className="bg-orange-100 text-orange-600 text-xs px-2 py-0.5 rounded-full">{cartItems.length} items</span>
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-red-500 transition-colors p-1">
@@ -47,14 +47,14 @@ export default function CartSidebar({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {cartItems.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3">
-              <span className="text-4xl opacity-50">🕸️</span>
+              <span className="text-4xl opacity-50"></span>
               <p>Your cart is empty.</p>
               <button onClick={onClose} className="text-blue-600 text-sm font-semibold hover:underline">Browse components</button>
             </div>
           ) : (
             cartItems.map((item) => (
               <div key={item.item_id} className="flex gap-4 p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-blue-100 transition-colors">
-                <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center text-xl">📦</div>
+                <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center text-xl"></div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-800 truncate">{item.name}</h4>
                   <p className="text-xs text-slate-500 mb-2">Unit: {item.specifications['unit'] || 'pcs'}</p>

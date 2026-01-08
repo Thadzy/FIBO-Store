@@ -38,7 +38,8 @@ class BookingItemRequest(BaseModel):
 
 # Model for the main booking request payload
 class BookingRequest(BaseModel):
-    user_id: int = 1  # Default value for now
+    user_email: str 
+    user_name: str
     pickup_date: str
     due_date: str
     purpose: str
@@ -47,6 +48,25 @@ class BookingRequest(BaseModel):
 # Model for updating booking status (used by Admin)
 class BookingStatusUpdate(BaseModel):
     status: str
+
+# --- Helper Function ---
+def get_or_create_user(connection, email:str, name: str):
+    user = connection.execute(
+        text("SELECT user_id FROM users WHERE email = :email"), {"email": email}
+    ).fetchone()
+
+    if user:
+        return user.user_id
+    
+    max_id = connection.execute(text("SELECT MAX(user_id) FROM users")).scalar() or 0
+    new_id = max_id + 1
+
+    connection.execute(text("""
+        INSERT INTO users (user_id, email, full_name, role)
+        VALUES (:id, :email, :name, 'Student')
+    """), {"id": new_id, "email": email, "name": name})
+
+    return new_id
 
 # --- API Endpoints ---
 
@@ -78,119 +98,81 @@ def read_items():
     
 @app.post("/bookings")
 def create_booking(request: BookingRequest):
-    """
-    Create a new booking.
-    Transaction:
-    1. Insert booking record.
-    2. Check stock for each item.
-    3. Deduct stock.
-    4. Insert booking items.
-    """
     try:
-        # Use engine.begin() for atomic transaction (auto-rollback on error)
         with engine.begin() as connection:
-            # 1. Insert into bookings table
+            # 1. หา User ID จริงๆ จาก Email
+            real_user_id = get_or_create_user(connection, request.user_email, request.user_name)
+
+            # 2. สร้างใบจอง (ใช้ real_user_id)
             booking_query = text("""
                 INSERT INTO bookings (user_id, pickup_date, due_date, purpose, status)
                 VALUES (:user_id, :pickup_date, :due_date, :purpose, 'Pending')
                 RETURNING booking_id""")
             
             result = connection.execute(booking_query, {
-                "user_id" : request.user_id,
+                "user_id" : real_user_id,
                 "pickup_date": request.pickup_date,
                 "due_date": request.due_date,
                 "purpose": request.purpose
             })
-
             new_booking_id = result.scalar()
             
-            # 2. Loop through requested items
+            # 3. จัดการ Items (เหมือนเดิม)
             for item in request.items:
-                # Check current stock availability
                 check_stock = connection.execute(
                     text("SELECT available_quantity FROM items WHERE item_id = :item_id"),
                     {"item_id": item.item_id}
                 ).scalar()
 
                 if check_stock is None:
-                    raise HTTPException(status_code=404, detail=f"Item ID {item.item_id} not found.")
-                
+                    raise HTTPException(status_code=404, detail=f"Item {item.item_id} not found")
                 if check_stock < item.quantity:
-                    raise HTTPException(status_code=400, detail=f"Insufficient stock for Item ID {item.item_id}.")
+                    raise HTTPException(status_code=400, detail=f"Item {item.item_id} out of stock")
                 
-                # 3. Insert into booking_items table
                 connection.execute(text("""
                     INSERT INTO booking_items (booking_id, item_id, quantity)
-                    VALUES (:booking_id, :item_id, :quantity)"""), {
-                        "booking_id": new_booking_id,
-                        "item_id": item.item_id,
-                        "quantity": item.quantity
-                    })
+                    VALUES (:booking_id, :item_id, :quantity)"""), 
+                    {"booking_id": new_booking_id, "item_id": item.item_id, "quantity": item.quantity})
                 
-                # 4. Deduct stock from items table
                 connection.execute(text("""
-                    UPDATE items
-                    SET available_quantity = available_quantity - :quantity
-                    WHERE item_id = :item_id"""), {
-                        "quantity": item.quantity,
-                        "item_id": item.item_id
-                    })
+                    UPDATE items SET available_quantity = available_quantity - :quantity
+                    WHERE item_id = :item_id"""), 
+                    {"quantity": item.quantity, "item_id": item.item_id})
             
-            return {
-                "status": "success", 
-                "message": "Booking created successfully!", 
-                "booking_id": new_booking_id
-            }        
-    except HTTPException as he:
-        # Re-raise HTTP exceptions (like 400 or 404)
-        raise he
+            return {"status": "success", "booking_id": new_booking_id}        
     except Exception as e:
-        print(f"Error: {e}") 
+        print(e)
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
-@app.get("/my-bookings/{user_id}")
-def get_my_bookings(user_id: int):
-    """Fetch booking history for a specific user."""
+@app.get("/my-bookings")
+def get_my_bookings(email: str):
     try:
         with engine.connect() as connection:
-            # Join tables to get full details (Booking + Items + Item Names)
             query = text("""
-                SELECT 
-                    b.booking_id, 
-                    b.status, 
-                    b.pickup_date, 
-                    b.due_date,
-                    b.purpose,
-                    i.name as item_name,
-                    bi.quantity
+                SELECT b.booking_id, b.status, b.pickup_date, b.due_date, b.purpose,
+                       i.name as item_name, bi.quantity
                 FROM bookings b
+                JOIN users u ON b.user_id = u.user_id  
                 JOIN booking_items bi ON b.booking_id = bi.booking_id
                 JOIN items i ON bi.item_id = i.item_id
-                WHERE b.user_id = :uid
+                WHERE u.email = :email
                 ORDER BY b.booking_id DESC
             """)
-            result = connection.execute(query, {"uid": user_id})
+            result = connection.execute(query, {"email": email})
             rows = [dict(row._mapping) for row in result]
 
             history_list = []
-
-            # Group rows by booking_id to form a nested JSON structure
             for booking_id, group in groupby(rows, key=lambda x: x['booking_id']):
                 group_items = list(group)
-                first_row = group_items[0]
-
+                first = group_items[0]
                 history_list.append({
                     "booking_id": booking_id,
-                    "status": first_row['status'],
-                    "pickup_date": first_row['pickup_date'],
-                    "return_date": first_row['due_date'],
-                    "purpose": first_row['purpose'],
-                    "items": [
-                        {"name": item['item_name'], "quantity": item['quantity']} 
-                        for item in group_items
-                    ]
+                    "status": first['status'],
+                    "pickup_date": first['pickup_date'],
+                    "return_date": first['due_date'],
+                    "purpose": first['purpose'],
+                    "items": [{"name": i['item_name'], "quantity": i['quantity']} for i in group_items]
                 })
-
             return history_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

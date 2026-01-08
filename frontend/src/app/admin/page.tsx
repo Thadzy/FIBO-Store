@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
+import { useSession } from "next-auth/react"; 
+import { useRouter } from "next/navigation";   
 
 interface AdminBooking {
   booking_id: number;
@@ -13,10 +15,30 @@ interface AdminBooking {
 }
 
 export default function AdminDashboard() {
+  const { data: session, status } = useSession(); 
+  const router = useRouter();
+  
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. ฟังก์ชันดึงข้อมูลทั้งหมด
+  // --- Security Check ---
+useEffect(() => {
+    // 1. ถ้ายืนยันตัวตนเสร็จแล้ว (ไม่ใช่สถานะ loading)
+    if (status !== "loading") {
+      
+      // 2. เช็คเงื่อนไข: "ยังไม่ Login" หรือ "Login แล้วแต่ไม่ใช่ Admin"
+      if (status === "unauthenticated" || session?.user?.role !== "admin") {
+        
+        // 3. แจ้งเตือนก่อน
+        alert("⛔️ Access Denied: คุณไม่มีสิทธิ์เข้าถึงหน้านี้!");
+        
+        // 4. เตะกลับหน้าแรก
+        router.push("/");
+      }
+    }
+  }, [status, session, router]);
+
+  // --- Fetch Data ---
   const fetchBookings = async () => {
     try {
       const res = await fetch("http://127.0.0.1:8000/admin/bookings");
@@ -31,10 +53,12 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    if (status === "authenticated" && session?.user?.role === "admin") {
+      fetchBookings();
+    }
+  }, [status, session]);
 
-  // 2. ฟังก์ชันเปลี่ยนสถานะ (ยิง API PATCH)
+  // --- Update Status Function ---
   const handleStatusUpdate = async (id: number, newStatus: string) => {
     if (!confirm(`ยืนยันการเปลี่ยนสถานะเป็น "${newStatus}" ?`)) return;
 
@@ -47,14 +71,12 @@ export default function AdminDashboard() {
 
       if (!res.ok) throw new Error("Update failed");
 
-      // อัปเดตข้อมูลในตารางทันที (ไม่ต้องโหลดใหม่ทั้งหมด)
       setBookings((prev) =>
         prev.map((b) =>
           b.booking_id === id ? { ...b, status: newStatus } : b
         )
       );
       
-      alert(`อัปเดตสถานะเป็น ${newStatus} เรียบร้อย!`);
     } catch (error) {
       alert("เกิดข้อผิดพลาดในการอัปเดต");
     }
@@ -75,18 +97,21 @@ export default function AdminDashboard() {
     );
   };
 
+  if (status === "loading" || session?.user?.role !== "admin") {
+    return <div className="min-h-screen flex items-center justify-center text-slate-400">Verifying access...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Navbar แบบ Admin (ซ่อน Cart) */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
         <h1 className="text-xl font-black text-slate-800 flex items-center gap-2">
-          🛡️ FIBO ADMIN <span className="text-xs bg-slate-800 text-white px-2 py-0.5 rounded">Console</span>
+          FIBO ADMIN <span className="text-xs bg-slate-800 text-white px-2 py-0.5 rounded">Console</span>
         </h1>
         <button 
             onClick={fetchBookings} 
             className="text-sm text-blue-600 hover:underline font-bold"
         >
-            🔄 Refresh Data
+            Refresh Data
         </button>
       </nav>
 
@@ -139,20 +164,19 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-center gap-2">
-                          {/* Logic ปุ่ม: แสดงตามสถานะปัจจุบัน */}
                           {booking.status === "Pending" && (
                             <>
                               <button
                                 onClick={() => handleStatusUpdate(booking.booking_id, "Approved")}
                                 className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95"
                               >
-                                อนุมัติ ✅
+                                อนุมัติ
                               </button>
                               <button
                                 onClick={() => handleStatusUpdate(booking.booking_id, "Rejected")}
                                 className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
                               >
-                                ปฏิเสธ ❌
+                                ปฏิเสธ
                               </button>
                             </>
                           )}
@@ -162,7 +186,7 @@ export default function AdminDashboard() {
                               onClick={() => handleStatusUpdate(booking.booking_id, "Returned")}
                               className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95"
                             >
-                              คืนของแล้ว 📦
+                               คืนของแล้ว
                             </button>
                           )}
 
