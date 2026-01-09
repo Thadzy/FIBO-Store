@@ -86,9 +86,9 @@ export default function Home() {
   };
 
   // --- Logic: Remove from Cart ---
-  const handleRemoveFromCart = (itemId: string) => {
+const handleRemoveFromCart = (itemId: number) => {
     setCart((prev) => prev.filter((i) => i.item_id !== itemId));
-  };
+};
 
   // --- Logic: Checkout (Submit to API) ---
   const handleCheckout = async (formData: {
