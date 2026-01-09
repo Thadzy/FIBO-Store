@@ -117,7 +117,7 @@ export default function AdminDashboard() {
     );
   };
 
-  if (status === "loading" || session?.user?.role !== "admin")
+  if (status === "loading" || (session?.user as any)?.role !== "admin")
     return <div>Loading...</div>;
 
   return (
