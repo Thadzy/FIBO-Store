@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 import json
+from pydantic import Json
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +18,9 @@ BASE_URL = "http://127.0.0.1:8000"
 
 # --- Database Configuration ---
 # Format: postgresql://user:password@host:port/database_name
-DATABASE_URL = "postgresql://admin:admin12345678@localhost:5432/fibo_store_db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -32,7 +35,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],      
     allow_headers=["*"],
@@ -112,28 +115,35 @@ async def create_item(
     description: str = Form(...),
     quantity: int = Form(...),
     unit: str = Form("pcs"),
-    image_file: UploadFile = File(...) # 👈 รับไฟล์ตรงนี้
+    # ✅ รับข้อมูลมาเป็น Dict อัตโนมัติ (FastAPI จะแปลง JSON String ให้)
+    specifications: Json = Form(default={}), 
+    image_file: UploadFile = File(...) 
 ):
     try:
-        # --- ส่วนจัดการไฟล์ ---
-        # 1. สร้างชื่อไฟล์ใหม่แบบสุ่ม (เพื่อป้องกันชื่อซ้ำ) เช่น "a1b2c3d4.jpg"
-        file_extension = os.path.splitext(image_file.filename)[1] # ดึงนามสกุลไฟล์ (.jpg, .png)
+        # --- ส่วนจัดการไฟล์ (เหมือนเดิม) ---
+        file_extension = os.path.splitext(image_file.filename)[1]
         new_filename = f"{uuid.uuid4()}{file_extension}"
         file_location = os.path.join(UPLOAD_DIR, new_filename)
 
-        # 2. บันทึกไฟล์ลงโฟลเดอร์ uploads
         with open(file_location, "wb+") as file_object:
             shutil.copyfileobj(image_file.file, file_object)
         
-        # 3. สร้าง URL เต็มๆ สำหรับเข้าถึงรูปภาพ
-        # เช่น http://127.0.0.1:8000/static/a1b2c3d4.jpg
         final_image_url = f"{BASE_URL}/static/{new_filename}"
         print(f"File saved to: {file_location}, Accessible at: {final_image_url}")
 
-        # --- ส่วนบันทึกลง Database ---
+        # --- ส่วนบันทึกลง Database (แก้ตรงนี้) ---
         with engine.begin() as connection:
-            specs = {"unit": unit}
             
+            # ✅ 1. เตรียมข้อมูล Specs
+            # เอา specs ที่ส่งมาจากหน้าบ้าน (เช่น rpm, voltage) มาใช้เป็นฐาน
+            # ถ้าเป็น None ให้เริ่มด้วย Dict ว่าง
+            final_specs = specifications if specifications else {}
+            
+            # ✅ 2. ยัด 'unit' เข้าไปรวมใน specs ด้วย
+            final_specs["unit"] = unit
+            
+            # ตอนนี้ final_specs จะหน้าตาประมาณ: {"rpm": "500", "voltage": "12V", "unit": "pcs"}
+
             connection.execute(text("""
                 INSERT INTO items (name, category, description, image_url, available_quantity, specifications)
                 VALUES (:name, :category, :description, :image_url, :qty, :specs)
@@ -141,17 +151,20 @@ async def create_item(
                 "name": name,
                 "category": category,
                 "description": description,
-                "image_url": final_image_url, # 👈 ใช้ URL ที่เราสร้างขึ้นมา
+                "image_url": final_image_url,
                 "qty": quantity,
-                "specs": json.dumps(specs)
+                # ✅ 3. แปลง Dict กลับเป็น JSON String เพื่อบันทึกลง SQL
+                "specs": json.dumps(final_specs) 
             })
             
             return {"status": "success", "message": f"Added item: {name}", "image_url": final_image_url}
             
     except Exception as e:
         print(f"Error uploading: {e}")
-        # ถ้า Error และไฟล์ถูกสร้างไปแล้ว อาจจะควรลบทิ้ง (Optional)
-        # if os.path.exists(file_location): os.remove(file_location)
+        # ลบไฟล์ทิ้งถ้าบันทึก DB ไม่สำเร็จ (เพื่อไม่ให้ไฟล์ขยะล้นเครื่อง)
+        if 'file_location' in locals() and os.path.exists(file_location):
+            os.remove(file_location)
+            
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.post("/bookings")
@@ -341,25 +354,34 @@ async def update_item(
     description: str = Form(...),
     quantity: int = Form(...),
     unit: str = Form(...),
-    image_file: Optional[UploadFile] = File(None) # รูปภาพเป็น Optional (ไม่แก้ก็ได้)
+    # ✅ 1. เพิ่มตัวรับ specifications (แบบ Json)
+    specifications: Json = Form(default={}), 
+    image_file: Optional[UploadFile] = File(None)
 ):
     try:
-        # 1. เตรียม Query พื้นฐาน
+        # ✅ 2. รวม unit เข้ากับ specifications ก่อนบันทึก
+        # (เหมือนที่ทำใน POST เพื่อให้ rpm, voltage ไม่หาย)
+        final_specs = specifications if specifications else {}
+        final_specs["unit"] = unit
+
+        # 3. เตรียม Query พื้นฐาน
         sql_query = """
             UPDATE items 
             SET name=:name, category=:category, description=:description, 
                 available_quantity=:qty, specifications=:specs
         """
+        
         params = {
             "id": item_id,
             "name": name,
             "category": category,
             "description": description,
             "qty": quantity,
-            "specs": json.dumps({"unit": unit})
+            # ✅ ใช้ final_specs ที่รวมร่างแล้ว แปลงเป็น String
+            "specs": json.dumps(final_specs) 
         }
 
-        # 2. ถ้ามีการอัปโหลดรูปใหม่ ให้บันทึกและอัปเดต URL
+        # 4. ถ้ามีการอัปโหลดรูปใหม่
         if image_file:
             file_extension = os.path.splitext(image_file.filename)[1]
             new_filename = f"{uuid.uuid4()}{file_extension}"
@@ -370,11 +392,10 @@ async def update_item(
             
             new_image_url = f"{BASE_URL}/static/{new_filename}"
             
-            # ต่อ SQL เพื่ออัปเดต image_url
             sql_query += ", image_url=:image_url"
             params["image_url"] = new_image_url
 
-        # 3. จบคำสั่ง SQL
+        # 5. จบคำสั่ง SQL
         sql_query += " WHERE item_id=:id"
 
         with engine.begin() as connection:
