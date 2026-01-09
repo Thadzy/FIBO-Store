@@ -42,7 +42,7 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
               <input 
                 type="date" 
                 required
-                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-blue-900"
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
               />
@@ -52,7 +52,7 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
               <input 
                 type="date" 
                 required
-                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-blue-900"
                 value={returnDate}
                 onChange={(e) => setReturnDate(e.target.value)}
               />
@@ -63,8 +63,8 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
             <label className="block text-sm font-semibold text-slate-700 mb-1">วัตถุประสงค์การยืม</label>
             <textarea 
               required
-              placeholder="เช่น ใช้ทำโครงงานวิชา FRA221..."
-              className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none h-24 resize-none"
+              placeholder="เช่น ใช้ทำโครงงานวิชา FRA161..."
+              className="text-blue-900 w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none h-24 resize-none"
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
             />

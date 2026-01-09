@@ -1,10 +1,19 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware 
+import os
+import shutil
+import uuid
+import json
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel
 from typing import List
 from itertools import groupby
+from typing import Optional # เพิ่ม import นี้ด้วย
+
+UPLOAD_DIR = "./uploads"
+BASE_URL = "http://127.0.0.1:8000"
 
 # --- Database Configuration ---
 # Format: postgresql://user:password@host:port/database_name
@@ -28,6 +37,8 @@ app.add_middleware(
     allow_methods=["*"],      
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 # --- Data Models (Pydantic Schemas) ---
 
@@ -73,27 +84,74 @@ def get_or_create_user(connection, email:str, name: str):
 @app.get("/")
 def read_root():
     """Root endpoint to check if API is running."""
-    return {"message": "Welcome to FIBO Store API! 🚀"}
+    return {"message": "Welcome to FIBO Store API!"}
 
-@app.get("/test-db")
-def test_db_connection():
-    """Endpoint to test database connectivity."""
-    try:
-        with engine.connect() as connection:
-            result = connection.execute(text("SELECT 'Database Connected!'"))
-            return {"status": "success", "message": result.scalar()}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-    
+# @app.get("/test-db")
+# def test_db_connection():
+#     """Endpoint to test database connectivity."""
+#     try:
+#         with engine.connect() as connection:
+#             result = connection.execute(text("SELECT 'Database Connected!'"))
+#             return {"status": "success", "message": result.scalar()}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
+
 @app.get("/items")
 def read_items():
-    """Fetch all available items from the database."""
     try:
         with engine.connect() as connection:
-            result = connection.execute(text("SELECT * FROM items ORDER BY item_id"))
-            items = [dict(row._mapping) for row in result]
-            return items
+            result = connection.execute(text("SELECT * FROM items ORDER BY item_id DESC"))
+            return [dict(row._mapping) for row in result]
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/items")
+async def create_item(
+    name: str = Form(...),
+    category: str = Form(...),
+    description: str = Form(...),
+    quantity: int = Form(...),
+    unit: str = Form("pcs"),
+    image_file: UploadFile = File(...) # 👈 รับไฟล์ตรงนี้
+):
+    try:
+        # --- ส่วนจัดการไฟล์ ---
+        # 1. สร้างชื่อไฟล์ใหม่แบบสุ่ม (เพื่อป้องกันชื่อซ้ำ) เช่น "a1b2c3d4.jpg"
+        file_extension = os.path.splitext(image_file.filename)[1] # ดึงนามสกุลไฟล์ (.jpg, .png)
+        new_filename = f"{uuid.uuid4()}{file_extension}"
+        file_location = os.path.join(UPLOAD_DIR, new_filename)
+
+        # 2. บันทึกไฟล์ลงโฟลเดอร์ uploads
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(image_file.file, file_object)
+        
+        # 3. สร้าง URL เต็มๆ สำหรับเข้าถึงรูปภาพ
+        # เช่น http://127.0.0.1:8000/static/a1b2c3d4.jpg
+        final_image_url = f"{BASE_URL}/static/{new_filename}"
+        print(f"File saved to: {file_location}, Accessible at: {final_image_url}")
+
+        # --- ส่วนบันทึกลง Database ---
+        with engine.begin() as connection:
+            specs = {"unit": unit}
+            
+            connection.execute(text("""
+                INSERT INTO items (name, category, description, image_url, available_quantity, specifications)
+                VALUES (:name, :category, :description, :image_url, :qty, :specs)
+            """), {
+                "name": name,
+                "category": category,
+                "description": description,
+                "image_url": final_image_url, # 👈 ใช้ URL ที่เราสร้างขึ้นมา
+                "qty": quantity,
+                "specs": json.dumps(specs)
+            })
+            
+            return {"status": "success", "message": f"Added item: {name}", "image_url": final_image_url}
+            
+    except Exception as e:
+        print(f"Error uploading: {e}")
+        # ถ้า Error และไฟล์ถูกสร้างไปแล้ว อาจจะควรลบทิ้ง (Optional)
+        # if os.path.exists(file_location): os.remove(file_location)
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.post("/bookings")
@@ -254,3 +312,76 @@ def update_booking_status(booking_id: int, update: BookingStatusUpdate):
             return {"message": f"Booking {booking_id} updated to {update.status}"}
     except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/items/{item_id}")
+def delete_item(item_id: int):
+    try:
+        with engine.begin() as connection:
+            # (Optional) ลบไฟล์รูปภาพด้วยก็ได้ แต่เพื่อความปลอดภัยเอาแค่ข้อมูลก่อน
+            connection.execute(text("DELETE FROM items WHERE item_id = :id"), {"id": item_id})
+        return {"status": "success", "message": f"Deleted item {item_id}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.delete("/items/{item_id}")
+def delete_item(item_id: int):
+    try:
+        with engine.begin() as connection:
+            # (Optional) ลบไฟล์รูปภาพด้วยก็ได้ แต่เพื่อความปลอดภัยเอาแค่ข้อมูลก่อน
+            connection.execute(text("DELETE FROM items WHERE item_id = :id"), {"id": item_id})
+        return {"status": "success", "message": f"Deleted item {item_id}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    name: str = Form(...),
+    category: str = Form(...),
+    description: str = Form(...),
+    quantity: int = Form(...),
+    unit: str = Form(...),
+    image_file: Optional[UploadFile] = File(None) # รูปภาพเป็น Optional (ไม่แก้ก็ได้)
+):
+    try:
+        # 1. เตรียม Query พื้นฐาน
+        sql_query = """
+            UPDATE items 
+            SET name=:name, category=:category, description=:description, 
+                available_quantity=:qty, specifications=:specs
+        """
+        params = {
+            "id": item_id,
+            "name": name,
+            "category": category,
+            "description": description,
+            "qty": quantity,
+            "specs": json.dumps({"unit": unit})
+        }
+
+        # 2. ถ้ามีการอัปโหลดรูปใหม่ ให้บันทึกและอัปเดต URL
+        if image_file:
+            file_extension = os.path.splitext(image_file.filename)[1]
+            new_filename = f"{uuid.uuid4()}{file_extension}"
+            file_location = os.path.join(UPLOAD_DIR, new_filename)
+            
+            with open(file_location, "wb+") as file_object:
+                shutil.copyfileobj(image_file.file, file_object)
+            
+            new_image_url = f"{BASE_URL}/static/{new_filename}"
+            
+            # ต่อ SQL เพื่ออัปเดต image_url
+            sql_query += ", image_url=:image_url"
+            params["image_url"] = new_image_url
+
+        # 3. จบคำสั่ง SQL
+        sql_query += " WHERE item_id=:id"
+
+        with engine.begin() as connection:
+            connection.execute(text(sql_query), params)
+            
+        return {"status": "success", "message": "Updated successfully"}
+
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))

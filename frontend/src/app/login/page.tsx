@@ -6,7 +6,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-white">
       <div className="bg-white/10 backdrop-blur-lg p-10 rounded-3xl border border-white/20 shadow-2xl text-center max-w-sm w-full">
         <div className="w-20 h-20 bg-orange-500 rounded-2xl mx-auto mb-6 flex items-center justify-center text-4xl shadow-lg shadow-orange-500/40">
-          ⚙️
+          🥀
         </div>
 
         <h1 className="text-3xl font-black mb-2 tracking-tight">FIBO STORE</h1>
@@ -41,7 +41,7 @@ export default function LoginPage() {
         </button>
 
         <p className="mt-6 text-xs text-slate-400">
-          Only <span className="text-orange-400 font-mono">@kmutt.ac.th</span>{" "}
+          Only <span className="text-orange-400 font-mono">@mail.kmutt.ac.th</span>{" "}
           allowed
         </p>
       </div>

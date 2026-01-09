@@ -1,7 +1,6 @@
 import React from "react";
 import { Item } from "@/types";
 
-// เพิ่ม field จำนวนลงไปใน Item เดิม
 interface CartItem extends Item {
   borrow_qty: number;
 }
@@ -10,8 +9,10 @@ interface CartSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onRemoveItem: (id: string) => void; // ให้คุณไปผูก Logic ลบของเอง
-  onCheckout: () => void;             // ให้คุณไปผูก Logic ยืนยันเอง
+  onRemoveItem: (id: string) => void;
+  onCheckout: () => void;
+  onIncreaseItem: (id: string) => void;
+  onDecreaseItem: (id: string) => void;
 }
 
 export default function CartSidebar({ 
@@ -19,11 +20,13 @@ export default function CartSidebar({
   onClose, 
   cartItems, 
   onRemoveItem,
-  onCheckout 
+  onCheckout,
+  onIncreaseItem,
+  onDecreaseItem
 }: CartSidebarProps) {
   return (
     <>
-      {/* Backdrop (Blur Background) */}
+      {/* Backdrop */}
       <div 
         className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
@@ -43,31 +46,65 @@ export default function CartSidebar({
           </button>
         </div>
 
-        {/* Item List (Scrollable) */}
+        {/* Item List */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {cartItems.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3">
-              <span className="text-4xl opacity-50"></span>
+              <span className="text-4xl opacity-50">🛒</span>
               <p>Your cart is empty.</p>
               <button onClick={onClose} className="text-blue-600 text-sm font-semibold hover:underline">Browse components</button>
             </div>
           ) : (
             cartItems.map((item) => (
               <div key={item.item_id} className="flex gap-4 p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-blue-100 transition-colors">
-                <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center text-xl"></div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-slate-800 truncate">{item.name}</h4>
-                  <p className="text-xs text-slate-500 mb-2">Unit: {item.specifications['unit'] || 'pcs'}</p>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold bg-slate-100 px-2 py-1 rounded text-slate-600">
-                      x {item.borrow_qty}
-                    </span>
-                    <button 
-                      onClick={() => onRemoveItem(item.item_id)}
-                      className="text-xs text-red-500 font-medium hover:text-red-700 hover:underline"
-                    >
-                      Remove
-                    </button>
+                
+                {/* ✅ เปลี่ยนจาก Placeholder เป็นรูปจริง ตรงนี้ครับ */}
+                <div className="w-16 h-16 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden border border-slate-200">
+                  <img
+                    src={item.image_url || "https://placehold.co/100x100?text=No+Img"}
+                    alt={item.name}
+                    className="w-full h-full object-contain p-1"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://placehold.co/100x100?text=Error";
+                    }}
+                  />
+                </div>
+                
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-slate-800 truncate pr-2">{item.name}</h4>
+                        <button 
+                            onClick={() => onRemoveItem(item.item_id)}
+                            className="text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-500">Available: {item.available_quantity} {item.specifications['unit'] || 'pcs'}</p>
+                  </div>
+
+                  {/* Qty Control */}
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50">
+                        <button 
+                            onClick={() => onDecreaseItem(item.item_id)}
+                            disabled={item.borrow_qty <= 1}
+                            className="px-3 py-1 text-slate-600 hover:bg-slate-200 rounded-l-lg disabled:opacity-30 disabled:hover:bg-transparent"
+                        >
+                            -
+                        </button>
+                        <span className="px-2 text-sm font-bold text-slate-800 min-w-[30px] text-center">
+                            {item.borrow_qty}
+                        </span>
+                        <button 
+                            onClick={() => onIncreaseItem(item.item_id)}
+                            disabled={item.borrow_qty >= item.available_quantity} 
+                            className="px-3 py-1 text-slate-600 hover:bg-slate-200 rounded-r-lg disabled:opacity-30 disabled:hover:bg-transparent"
+                        >
+                            +
+                        </button>
+                    </div>
                   </div>
                 </div>
               </div>

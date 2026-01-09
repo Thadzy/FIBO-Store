@@ -14,13 +14,13 @@ interface CartItem extends Item {
 
 export default function Home() {
   const { data: session } = useSession(); // ดึง Session มาใช้
-  
+
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  
+
   // 2. ใช้ CartItem[] แทน Item[] เพื่อให้รองรับ borrow_qty
   const [cart, setCart] = useState<CartItem[]>([]);
-  
+
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -49,9 +49,12 @@ export default function Home() {
   }, []);
 
   // --- Logic: Search / Filter ---
-  const filteredItems = items.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    JSON.stringify(item.specifications).toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredItems = items.filter(
+    (item) =>
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      JSON.stringify(item.specifications)
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
   );
 
   // --- Logic: Add to Cart ---
@@ -64,8 +67,8 @@ export default function Home() {
         // ถ้ามีแล้ว ให้บวกจำนวนเพิ่ม (แต่ห้ามเกินสต็อกจริง)
         if (existingItem.borrow_qty < item.available_quantity) {
           return prevCart.map((c) =>
-            c.item_id === item.item_id 
-              ? { ...c, borrow_qty: c.borrow_qty + 1 } 
+            c.item_id === item.item_id
+              ? { ...c, borrow_qty: c.borrow_qty + 1 }
               : c
           );
         } else {
@@ -77,7 +80,7 @@ export default function Home() {
         return [...prevCart, { ...item, borrow_qty: 1 }];
       }
     });
-    
+
     // เปิด Sidebar ทันทีที่กดหยิบใส่ตะกร้า
     setIsCartOpen(true);
   };
@@ -129,9 +132,9 @@ export default function Home() {
 
       // 5. ถ้าสำเร็จ
       alert("จองสำเร็จ! กรุณารอการอนุมัติ");
-      setCart([]); 
-      setIsCartOpen(false); 
-      setIsCheckoutModalOpen(false); 
+      setCart([]);
+      setIsCartOpen(false);
+      setIsCheckoutModalOpen(false);
 
       // รีโหลดหน้าเว็บเพื่อให้สต็อกอัปเดตทันที
       window.location.reload();
@@ -140,6 +143,33 @@ export default function Home() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleIncreaseItem = (itemId: string) => {
+    setCart((prevCart) =>
+      prevCart.map((item) => {
+        // เช็คว่าไอดีตรงกัน และต้องไม่เกิน Available Stock
+        if (
+          item.item_id === itemId &&
+          item.borrow_qty < item.available_quantity
+        ) {
+          return { ...item, borrow_qty: item.borrow_qty + 1 };
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleDecreaseItem = (itemId: string) => {
+    setCart((prevCart) =>
+      prevCart.map((item) => {
+        // ลดจำนวนลง แต่ต่ำสุดคือ 1 (ถ้าจะลบให้กดปุ่มถังขยะแทน)
+        if (item.item_id === itemId && item.borrow_qty > 1) {
+          return { ...item, borrow_qty: item.borrow_qty - 1 };
+        }
+        return item;
+      })
+    );
   };
 
   return (
@@ -155,21 +185,23 @@ export default function Home() {
       {/* 2. Main Content Grid */}
       <main className="max-w-6xl mx-auto pt-8 px-4 pb-20">
         {loading ? (
-          <p className="text-center text-xl text-gray-500 mt-10">Loading inventory...</p>
+          <p className="text-center text-xl text-gray-500 mt-10">
+            Loading inventory...
+          </p>
         ) : (
           <>
             {filteredItems.length === 0 ? (
-               <div className="text-center text-gray-400 mt-10">
-                  <p className="text-2xl"></p>
-                  <p>ไม่พบอุปกรณ์ที่ค้นหา</p>
-               </div>
+              <div className="text-center text-gray-400 mt-10">
+                <p className="text-2xl"></p>
+                <p>ไม่พบอุปกรณ์ที่ค้นหา</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredItems.map((item) => (
                   <ItemCard
                     key={item.item_id}
                     item={item}
-                    onAddToCart={handleBorrowClick} 
+                    onAddToCart={handleBorrowClick}
                   />
                 ))}
               </div>
@@ -185,6 +217,9 @@ export default function Home() {
         cartItems={cart}
         onRemoveItem={handleRemoveFromCart}
         onCheckout={() => setIsCheckoutModalOpen(true)}
+        // ✅ ส่ง props ใหม่เข้าไป
+        onIncreaseItem={handleIncreaseItem}
+        onDecreaseItem={handleDecreaseItem}
       />
 
       {/* 4. Checkout Modal */}
