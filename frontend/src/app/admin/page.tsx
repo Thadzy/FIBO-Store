@@ -37,7 +37,7 @@ export default function AdminDashboard() {
   // --- Security Check ---
   useEffect(() => {
     if (status !== "loading") {
-      if (status === "unauthenticated" || session?.user?.role !== "admin") {
+      if (status === "unauthenticated" || (session?.user as any)?.role !== "admin") {
         alert("⛔️ Access Denied!");
         router.push("/");
       }
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user?.role === "admin") {
+    if (status === "authenticated" && (session?.user as any)?.role === "admin") {
       fetchData();
     }
   }, [status, session, activeTab]);
