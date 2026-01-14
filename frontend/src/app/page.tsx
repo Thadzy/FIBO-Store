@@ -86,9 +86,9 @@ export default function Home() {
   };
 
   // --- Logic: Remove from Cart ---
-const handleRemoveFromCart = (itemId: number) => {
+  const handleRemoveFromCart = (itemId: number) => {
     setCart((prev) => prev.filter((i) => i.item_id !== itemId));
-};
+  };
 
   // --- Logic: Checkout (Submit to API) ---
   const handleCheckout = async (formData: {
@@ -160,7 +160,8 @@ const handleRemoveFromCart = (itemId: number) => {
     );
   };
 
-  const handleDecreaseItem = (itemId: string) => {
+  const handleDecreaseItem = (itemId: number) => {
+    // Changed string to number
     setCart((prevCart) =>
       prevCart.map((item) => {
         // ลดจำนวนลง แต่ต่ำสุดคือ 1 (ถ้าจะลบให้กดปุ่มถังขยะแทน)
