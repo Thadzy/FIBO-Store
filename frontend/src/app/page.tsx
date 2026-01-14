@@ -145,7 +145,7 @@ const handleRemoveFromCart = (itemId: number) => {
     }
   };
 
-  const handleIncreaseItem = (itemId: string) => {
+  const handleIncreaseItem = (itemId: number) => {
     setCart((prevCart) =>
       prevCart.map((item) => {
         // เช็คว่าไอดีตรงกัน และต้องไม่เกิน Available Stock

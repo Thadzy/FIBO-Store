@@ -11,10 +11,14 @@ from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel
 from typing import List
 from itertools import groupby
-from typing import Optional # เพิ่ม import นี้ด้วย
+from typing import Optional 
+from dotenv import load_dotenv
 
+load_dotenv()
+
+# --- Configuration ---
 UPLOAD_DIR = "./uploads"
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
 
 # --- Database Configuration ---
 # Format: postgresql://user:password@host:port/database_name
@@ -30,7 +34,9 @@ app = FastAPI()
 # --- CORS Configuration ---
 # Allow requests from the frontend (Next.js running on port 3000)
 origins = [
-    "http://localhost:3000",  
+    "http://localhost:3000", 
+    "https://fibo-store-ghih.vercel.app", 
+    "https://fibo-store-ghih-7pdewspgv-thadzys-projects.vercel.app" 
 ]
 
 app.add_middleware(
@@ -41,16 +47,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Static Files Configuration ---
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
-# --- Data Models (Pydantic Schemas) ---
-
-# Model for individual items within a booking request
+# --- Pydantic Models ---
+# Model for individual item in a booking request
+# Booking Request Items
 class BookingItemRequest(BaseModel):
     item_id: int
     quantity: int 
 
 # Model for the main booking request payload
+# Booking Request
 class BookingRequest(BaseModel):
     user_email: str 
     user_name: str
@@ -72,6 +80,7 @@ def get_or_create_user(connection, email:str, name: str):
     if user:
         return user.user_id
     
+    # Create new user if not found
     max_id = connection.execute(text("SELECT MAX(user_id) FROM users")).scalar() or 0
     new_id = max_id + 1
 
@@ -83,7 +92,7 @@ def get_or_create_user(connection, email:str, name: str):
     return new_id
 
 # --- API Endpoints ---
-
+# Root Endpoint
 @app.get("/")
 def read_root():
     """Root endpoint to check if API is running."""
@@ -99,6 +108,7 @@ def read_root():
 #     except Exception as e:
 #         return {"status": "error", "message": str(e)}
 
+# Items Endpoints 
 @app.get("/items")
 def read_items():
     try:
@@ -107,7 +117,8 @@ def read_items():
             return [dict(row._mapping) for row in result]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+# Create Item Endpoint
 @app.post("/items")
 async def create_item(
     name: str = Form(...),
@@ -115,35 +126,35 @@ async def create_item(
     description: str = Form(...),
     quantity: int = Form(...),
     unit: str = Form("pcs"),
-    # ✅ รับข้อมูลมาเป็น Dict อัตโนมัติ (FastAPI จะแปลง JSON String ให้)
-    specifications: Json = Form(default={}), 
-    image_file: UploadFile = File(...) 
+    specifications: Json = Form(default={}), # Specifications as JSON
+    image_file: UploadFile = File(...) # Image file upload
 ):
     try:
-        # --- ส่วนจัดการไฟล์ (เหมือนเดิม) ---
+        # --- Save Image File ---
+        # Generate unique filename 
         file_extension = os.path.splitext(image_file.filename)[1]
         new_filename = f"{uuid.uuid4()}{file_extension}"
         file_location = os.path.join(UPLOAD_DIR, new_filename)
 
+        # Save the uploaded file
         with open(file_location, "wb+") as file_object:
             shutil.copyfileobj(image_file.file, file_object)
         
+        # Construct accessible image URL
         final_image_url = f"{BASE_URL}/static/{new_filename}"
         print(f"File saved to: {file_location}, Accessible at: {final_image_url}")
 
-        # --- ส่วนบันทึกลง Database (แก้ตรงนี้) ---
+        # --- Save to Database ---
         with engine.begin() as connection:
-            
-            # ✅ 1. เตรียมข้อมูล Specs
-            # เอา specs ที่ส่งมาจากหน้าบ้าน (เช่น rpm, voltage) มาใช้เป็นฐาน
-            # ถ้าเป็น None ให้เริ่มด้วย Dict ว่าง
+
+            # Prepare final specifications dictionary
+            # If specifications is None, initialize as empty dict
             final_specs = specifications if specifications else {}
             
-            # ✅ 2. ยัด 'unit' เข้าไปรวมใน specs ด้วย
+            # Add unit to specifications
             final_specs["unit"] = unit
             
-            # ตอนนี้ final_specs จะหน้าตาประมาณ: {"rpm": "500", "voltage": "12V", "unit": "pcs"}
-
+            # {"rpm": "500", "voltage": "12V", "unit": "pcs"}
             connection.execute(text("""
                 INSERT INTO items (name, category, description, image_url, available_quantity, specifications)
                 VALUES (:name, :category, :description, :image_url, :qty, :specs)
@@ -153,33 +164,32 @@ async def create_item(
                 "description": description,
                 "image_url": final_image_url,
                 "qty": quantity,
-                # ✅ 3. แปลง Dict กลับเป็น JSON String เพื่อบันทึกลง SQL
-                "specs": json.dumps(final_specs) 
+                "specs": json.dumps(final_specs) # Convert dict to JSON string
             })
-            
             return {"status": "success", "message": f"Added item: {name}", "image_url": final_image_url}
             
     except Exception as e:
         print(f"Error uploading: {e}")
-        # ลบไฟล์ทิ้งถ้าบันทึก DB ไม่สำเร็จ (เพื่อไม่ให้ไฟล์ขยะล้นเครื่อง)
+        # Delete the uploaded file if there was an error
         if 'file_location' in locals() and os.path.exists(file_location):
             os.remove(file_location)
-            
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+# Bookings Endpoints
 @app.post("/bookings")
 def create_booking(request: BookingRequest):
     try:
         with engine.begin() as connection:
-            # 1. หา User ID จริงๆ จาก Email
+            # Find user_id from email
             real_user_id = get_or_create_user(connection, request.user_email, request.user_name)
 
-            # 2. สร้างใบจอง (ใช้ real_user_id)
+            # use real_user_id in booking creation
             booking_query = text("""
                 INSERT INTO bookings (user_id, pickup_date, due_date, purpose, status)
                 VALUES (:user_id, :pickup_date, :due_date, :purpose, 'Pending')
                 RETURNING booking_id""")
             
+            # Execute booking insertion
             result = connection.execute(booking_query, {
                 "user_id" : real_user_id,
                 "pickup_date": request.pickup_date,
@@ -188,7 +198,7 @@ def create_booking(request: BookingRequest):
             })
             new_booking_id = result.scalar()
             
-            # 3. จัดการ Items (เหมือนเดิม)
+            # Insert each item in the booking
             for item in request.items:
                 check_stock = connection.execute(
                     text("SELECT available_quantity FROM items WHERE item_id = :item_id"),
@@ -214,7 +224,8 @@ def create_booking(request: BookingRequest):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Internal Server Error")
-    
+
+# Get My Bookings Endpoint
 @app.get("/my-bookings")
 def get_my_bookings(email: str):
     try:
@@ -232,6 +243,7 @@ def get_my_bookings(email: str):
             result = connection.execute(query, {"email": email})
             rows = [dict(row._mapping) for row in result]
 
+            # Group by booking_id
             history_list = []
             for booking_id, group in groupby(rows, key=lambda x: x['booking_id']):
                 group_items = list(group)
@@ -248,9 +260,10 @@ def get_my_bookings(email: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Admin: Get All Bookings Endpoint
 @app.get("/admin/bookings")
 def get_all_bookings():
-    """Fetch ALL bookings for the Admin Dashboard."""
+    # Fetch all bookings with user names and item details
     try:
         with engine.connect() as connection:
             query = text("""
@@ -289,20 +302,19 @@ def get_all_bookings():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Update Booking Status Endpoint
 @app.patch("/bookings/{booking_id}/status")
 def update_booking_status(booking_id: int, update: BookingStatusUpdate):
-    """
-    Update booking status (Approve/Reject).
-    CRITICAL: Only restock items if the status is Rejected or Returned.
-    """
+    # Update booking status (Approve/Reject).
+    # CRITICAL: Only restock items if the status is Rejected or Returned.
     try:
         with engine.begin() as connection:
-            # 1. Update the status in bookings table
+            # Update the status in bookings table
             connection.execute(text("""
                 UPDATE bookings SET status = :status WHERE booking_id = :id
             """), {"status": update.status, "id": booking_id})
 
-            # 2. Restocking Logic
+            # Restocking Logic
             if update.status in ["Rejected", "Returned"]:
                 
                 # Fetch items associated with this booking
@@ -326,26 +338,17 @@ def update_booking_status(booking_id: int, update: BookingStatusUpdate):
     except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+# Delete Item Endpoint
 @app.delete("/items/{item_id}")
 def delete_item(item_id: int):
     try:
         with engine.begin() as connection:
-            # (Optional) ลบไฟล์รูปภาพด้วยก็ได้ แต่เพื่อความปลอดภัยเอาแค่ข้อมูลก่อน
             connection.execute(text("DELETE FROM items WHERE item_id = :id"), {"id": item_id})
         return {"status": "success", "message": f"Deleted item {item_id}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@app.delete("/items/{item_id}")
-def delete_item(item_id: int):
-    try:
-        with engine.begin() as connection:
-            # (Optional) ลบไฟล์รูปภาพด้วยก็ได้ แต่เพื่อความปลอดภัยเอาแค่ข้อมูลก่อน
-            connection.execute(text("DELETE FROM items WHERE item_id = :id"), {"id": item_id})
-        return {"status": "success", "message": f"Deleted item {item_id}"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
+# Update Item Endpoint
 @app.put("/items/{item_id}")
 async def update_item(
     item_id: int,
@@ -354,34 +357,32 @@ async def update_item(
     description: str = Form(...),
     quantity: int = Form(...),
     unit: str = Form(...),
-    # ✅ 1. เพิ่มตัวรับ specifications (แบบ Json)
     specifications: Json = Form(default={}), 
     image_file: Optional[UploadFile] = File(None)
 ):
     try:
-        # ✅ 2. รวม unit เข้ากับ specifications ก่อนบันทึก
-        # (เหมือนที่ทำใน POST เพื่อให้ rpm, voltage ไม่หาย)
+        # Finalize specifications
         final_specs = specifications if specifications else {}
         final_specs["unit"] = unit
 
-        # 3. เตรียม Query พื้นฐาน
+        # Prepare SQL query and parameters
         sql_query = """
             UPDATE items 
             SET name=:name, category=:category, description=:description, 
                 available_quantity=:qty, specifications=:specs
         """
         
+        # Prepare
         params = {
             "id": item_id,
             "name": name,
             "category": category,
             "description": description,
-            "qty": quantity,
-            # ✅ ใช้ final_specs ที่รวมร่างแล้ว แปลงเป็น String
-            "specs": json.dumps(final_specs) 
+            "qty": quantity,    
+            "specs": json.dumps(final_specs) # Convert dict to JSON string
         }
 
-        # 4. ถ้ามีการอัปโหลดรูปใหม่
+        # If image file is provided, handle upload
         if image_file:
             file_extension = os.path.splitext(image_file.filename)[1]
             new_filename = f"{uuid.uuid4()}{file_extension}"
@@ -395,7 +396,7 @@ async def update_item(
             sql_query += ", image_url=:image_url"
             params["image_url"] = new_image_url
 
-        # 5. จบคำสั่ง SQL
+        # End the SQL query
         sql_query += " WHERE item_id=:id"
 
         with engine.begin() as connection:
