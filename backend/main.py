@@ -1,11 +1,11 @@
 import os
-import shutil
-import uuid
+# import shutil
+# import uuid
 import json
 from pydantic import Json
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+# from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel
@@ -13,6 +13,8 @@ from typing import List
 from itertools import groupby
 from typing import Optional 
 from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
 
 load_dotenv()
 
@@ -27,6 +29,13 @@ if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# --- Cloudinary Configuration ---
+cloudinary.config( 
+  cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME"), 
+  api_key = os.getenv("CLOUDINARY_API_KEY"), 
+  api_secret = os.getenv("CLOUDINARY_API_SECRET")
+)
 
 # --- FastAPI Initialization ---
 app = FastAPI()
@@ -48,7 +57,7 @@ app.add_middleware(
 )
 
 # --- Static Files Configuration ---
-app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
+# app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 # --- Pydantic Models ---
 # Model for individual item in a booking request
@@ -132,17 +141,23 @@ async def create_item(
     try:
         # --- Save Image File ---
         # Generate unique filename 
-        file_extension = os.path.splitext(image_file.filename)[1]
-        new_filename = f"{uuid.uuid4()}{file_extension}"
-        file_location = os.path.join(UPLOAD_DIR, new_filename)
+        # file_extension = os.path.splitext(image_file.filename)[1]
+        # new_filename = f"{uuid.uuid4()}{file_extension}"
+        # file_location = os.path.join(UPLOAD_DIR, new_filename)
 
-        # Save the uploaded file
-        with open(file_location, "wb+") as file_object:
-            shutil.copyfileobj(image_file.file, file_object)
+        # # Save the uploaded file
+        # with open(file_location, "wb+") as file_object:
+        #     shutil.copyfileobj(image_file.file, file_object)
         
-        # Construct accessible image URL
-        final_image_url = f"{BASE_URL}/static/{new_filename}"
-        print(f"File saved to: {file_location}, Accessible at: {final_image_url}")
+        # # Construct accessible image URL
+        # final_image_url = f"{BASE_URL}/static/{new_filename}"
+        # print(f"File saved to: {file_location}, Accessible at: {final_image_url}")
+
+        # Upload the file directly to Cloudinary
+        upload_result = cloudinary.uploader.upload(image_file.file)
+        final_image_url = upload_result.get("secure_url")
+
+        print(f"Image uploaded to: {final_image_url}")
 
         # --- Save to Database ---
         with engine.begin() as connection:
@@ -384,14 +399,16 @@ async def update_item(
 
         # If image file is provided, handle upload
         if image_file:
-            file_extension = os.path.splitext(image_file.filename)[1]
-            new_filename = f"{uuid.uuid4()}{file_extension}"
-            file_location = os.path.join(UPLOAD_DIR, new_filename)
+            # file_extension = os.path.splitext(image_file.filename)[1]
+            # new_filename = f"{uuid.uuid4()}{file_extension}"
+            # file_location = os.path.join(UPLOAD_DIR, new_filename)
             
-            with open(file_location, "wb+") as file_object:
-                shutil.copyfileobj(image_file.file, file_object)
+            # with open(file_location, "wb+") as file_object:
+            #     shutil.copyfileobj(image_file.file, file_object)
             
-            new_image_url = f"{BASE_URL}/static/{new_filename}"
+            # new_image_url = f"{BASE_URL}/static/{new_filename}"
+            upload_result = cloudinary.uploader.upload(image_file.file)
+            new_image_url = upload_result.get("secure_url")
             
             sql_query += ", image_url=:image_url"
             params["image_url"] = new_image_url
