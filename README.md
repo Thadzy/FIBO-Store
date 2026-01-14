@@ -223,7 +223,3 @@ If you are the next developer taking over this project:
 
 
 *Good luck building the future of FIBO!*
-
-```
-
-```
