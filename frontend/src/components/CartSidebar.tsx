@@ -8,9 +8,10 @@ interface CartItem extends Item {
 interface CartSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  cartItems: CartItem[];
-  onRemoveItem: (id: string) => void;
+  cartItems: any[]; // Or your CartItem type
   onCheckout: () => void;
+
+  onRemoveItem: (id: string) => void; // <--- The culprit
   onIncreaseItem: (id: string) => void;
   onDecreaseItem: (id: string) => void;
 }
