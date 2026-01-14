@@ -90,7 +90,8 @@ export default function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModa
       data.append("specifications", JSON.stringify(specificationsObject));
 
       // ส่งข้อมูลไปหา Backend
-      const res = await fetch("http://127.0.0.1:8000/items", {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${API_URL}/items`, {
         method: "POST",
         body: data, 
       });

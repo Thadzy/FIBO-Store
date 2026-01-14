@@ -5,7 +5,7 @@ DATABASE_URL = "postgresql://neondb_owner:npg_Qj2svu0mEeBY@ep-bold-glitter-a1xm9
 try:
     engine = create_engine(DATABASE_URL)
     with engine.begin() as connection:
-        print("กำลังสร้างตารางบน Neon Cloud...")
+        print("Creating Neon Cloud...")
         
         # สร้างตาราง items แบบครบเครื่อง (รวม category, description, image_url แล้ว)
         connection.execute(text("""

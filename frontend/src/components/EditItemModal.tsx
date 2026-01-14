@@ -110,7 +110,8 @@ export default function EditItemModal({ isOpen, onClose, onSuccess, item }: Edit
       }
 
       // ส่ง PUT Request
-      const res = await fetch(`http://127.0.0.1:8000/items/${item.item_id}`, {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${API_URL}/items/${item.item_id}`, {
         method: "PUT",
         body: data,
       });
