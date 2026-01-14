@@ -1,7 +1,16 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const handler = NextAuth({
+/**
+ * Retrieves the list of admin emails from environment variables.
+ * Falls back to an empty array if not defined.
+ */
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS?.split(",") || [];
+
+/**
+ * NextAuth Configuration Options
+ */
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -9,42 +18,60 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    // 1. ด่านตรวจคนเข้าเมือง: เช็คว่าเป็นอีเมล KMUTT หรือไม่?
+    /**
+     * SignIn Callback
+     * Controls access to the application based on email domain.
+     * Only allows emails ending with "@mail.kmutt.ac.th".
+     */
     async signIn({ user }) {
       if (user.email?.endsWith("@mail.kmutt.ac.th")) {
-        return true; // ผ่าน ✅
+        return true;
       } else {
-        console.log("Access Denied: Non-KMUTT email");
-        return false; // บล็อก ❌
+        console.warn(`Access Denied: Attempted login from non-KMUTT email (${user.email})`);
+        return false;
       }
     },
 
-    // 2. ด่านมอบตำแหน่ง: ถ้าเป็น Thadzy ให้เป็น Admin
+    /**
+     * JWT Callback
+     * Assigns user roles (Admin vs. Student) during token creation.
+     * This logic runs every time a user logs in or their session is updated.
+     */
     async jwt({ token, user }) {
-      if (user) {
-        // เช็คตรงนี้ครับ! ถ้าอีเมลตรงเป๊ะๆ ให้ถือว่าเป็น admin
-        const admins = ["thadchai.suks@mail.kmutt.ac.th"]; 
+      if (user && user.email) {
+        // Check if the user's email exists in the defined admin list
+        const isAdmin = ADMIN_EMAILS.includes(user.email);
         
-        token.role = admins.includes(user.email!) ? "admin" : "student";
+        token.role = isAdmin ? "admin" : "student";
         
-        // (แถม) เก็บ User ID จาก Database จริงมาใส่ตรงนี้ได้ในอนาคต
-        // token.id = user.id 
+        // Persist the user ID from the provider for database synchronization
+        token.id = user.id;
       }
       return token;
     },
 
-    // 3. ส่งข้อมูลไปให้ Frontend ใช้
-    async session({ session, token }: any) {
+    /**
+     * Session Callback
+     * Exposes the user's role and ID to the client-side session.
+     * This allows the frontend to conditionally render UI elements based on the role.
+     */
+    async session({ session, token }) {
       if (session.user) {
-        session.user.role = token.role; // Frontend จะเห็นว่า role คืออะไร
-        session.user.id = token.sub;
+        session.user.role = token.role as string;
+        session.user.id = token.id as string;
       }
       return session;
     },
   },
   pages: {
-    signIn: '/login', // ถ้ายังไม่ login ให้เด้งไปหน้านี้ (เดี๋ยวเราไปสร้าง)
-  }
-});
+    signIn: '/login', // Redirect to custom login page if unauthenticated
+  },
+  session: {
+    strategy: "jwt",
+  },
+  secret: process.env.NEXTAUTH_SECRET, // Ensure this variable is set in Vercel
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };

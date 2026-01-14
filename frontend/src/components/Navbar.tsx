@@ -1,8 +1,13 @@
 "use client";
+
 import React from "react";
 import Link from "next/link";
-import { useSession, signIn, signOut } from "next-auth/react"; // 👈 เรียกใช้ NextAuth
+import Image from "next/image";
+import { useSession, signIn, signOut } from "next-auth/react";
 
+/**
+ * Props for the Navbar component.
+ */
 interface NavbarProps {
   cartCount: number;
   onCartClick: () => void;
@@ -10,24 +15,40 @@ interface NavbarProps {
   onSearchChange: (value: string) => void;
 }
 
+/**
+ * Navbar Component
+ * * The primary navigation header for the application.
+ * Contains the Logo, Navigation Links, Search Bar, Cart Indicator, and User Profile/Auth controls.
+ */
 export default function Navbar({
   cartCount,
   onCartClick,
   searchTerm,
   onSearchChange,
 }: NavbarProps) {
-  // 1. ดึงข้อมูล Session (สถานะการ Login)
+  // Retrieve session data to determine authentication status
   const { data: session } = useSession();
 
   return (
     <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20 gap-4">
+          
           {/* --- LEFT: LOGO --- */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg shadow-orange-500/20 group-hover:scale-110 transition-transform duration-300">
-              🥀
+            {/* Logo Image Container */}
+            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-md shadow-orange-500/10 p-1.5 overflow-hidden border border-slate-100 group-hover:scale-105 transition-transform">
+              <Image
+                src="/FIBO.png" 
+                alt="FIBO Logo"
+                width={48}
+                height={48}
+                className="object-contain w-full h-full"
+                priority
+              />
             </div>
+            
+            {/* Logo Text */}
             <div className="flex flex-col">
               <span className="text-2xl font-black text-blue-900 tracking-tighter leading-none group-hover:text-orange-600 transition-colors">
                 FIBO
@@ -45,12 +66,12 @@ export default function Navbar({
           <div className="hidden md:flex items-center space-x-1">
             <Link
               href="/"
-              className="px-3 py-2 text-sm font-bold text-orange-600 bg-orange-50 rounded-lg"
+              className="px-3 py-2 text-sm font-bold text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
             >
-              หน้าหลัก
+              Home
             </Link>
 
-            {/* โชว์เมนู Admin เฉพาะคนที่เป็น Admin */}
+            {/* Admin Console Link (Conditional Render) */}
             {session?.user?.role === "admin" && (
               <Link
                 href="/admin"
@@ -64,18 +85,20 @@ export default function Navbar({
               href="/history"
               className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-blue-900 hover:bg-slate-50 rounded-lg transition-colors"
             >
-              ประวัติการยืม
+              History
             </Link>
           </div>
 
           {/* --- RIGHT: SEARCH & CART & PROFILE --- */}
           <div className="flex items-center gap-3 flex-1 md:flex-none justify-end">
+            
             {/* Search Bar */}
             <div className="relative group w-full md:w-48 lg:w-64 hidden sm:block">
               <input
                 type="text"
+                aria-label="Search inventory"
                 className="block w-full pl-3 pr-3 py-2 border border-slate-200 rounded-full leading-5 bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-sm"
-                placeholder="ค้นหาอุปกรณ์..."
+                placeholder="Search items..."
                 value={searchTerm}
                 onChange={(e) => onSearchChange(e.target.value)}
               />
@@ -83,7 +106,9 @@ export default function Navbar({
 
             {/* Cart Button */}
             <button
+              type="button"
               onClick={onCartClick}
+              aria-label="Open cart"
               className="relative p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-full transition-all active:scale-95"
             >
               <svg
@@ -110,7 +135,7 @@ export default function Navbar({
 
             {/* --- LOGIN / PROFILE SECTION --- */}
             {session ? (
-              // กรณี: Login แล้ว -> โชว์รูป + ปุ่ม Logout
+              // Authenticated State: User Profile & Logout
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end hidden lg:flex">
                   <span className="text-xs font-bold text-slate-700">
@@ -127,15 +152,15 @@ export default function Navbar({
                       session.user?.image ||
                       "https://ui-avatars.com/api/?name=User"
                     }
-                    alt="Profile"
-                    className="w-9 h-9 rounded-full border-2 border-slate-100 shadow-sm"
+                    alt="User Profile"
+                    className="w-9 h-9 rounded-full border-2 border-slate-100 shadow-sm object-cover"
                   />
-                  {/* Logout Dropdown (โชว์เมื่อเอาเมาส์จ่อรูป) */}
-                  {/* 1. สร้าง Wrapper ใสๆ ขึ้นมาครอบ (ย้าย hidden group-hover:block มาไว้ที่นี่) */}
+                  
+                  {/* Dropdown Menu */}
                   <div className="absolute right-0 top-full pt-2 w-32 hidden group-hover:block animate-in fade-in zoom-in duration-200">
-                    {/* 2. ตัวกล่องสีขาวอยู่ข้างใน (ลบ mt-2, absolute, top-full ออก เพราะตัวแม่จัดการแล้ว) */}
                     <div className="bg-white rounded-lg shadow-xl border border-slate-100 p-1">
                       <button
+                        type="button"
                         onClick={() => signOut()}
                         className="w-full text-left px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-md transition-colors"
                       >
@@ -146,9 +171,10 @@ export default function Navbar({
                 </div>
               </div>
             ) : (
-              // กรณี: ยังไม่ Login -> โชว์ปุ่ม Login
+              // Unauthenticated State: Login Button
               <button
-                onClick={() => signIn("google")} // เด้งไปหน้า Login
+                type="button"
+                onClick={() => signIn("google")}
                 className="bg-blue-900 text-white text-xs font-bold px-4 py-2 rounded-full hover:bg-blue-800 transition-all shadow-md shadow-blue-900/20"
               >
                 Sign In

@@ -8,7 +8,6 @@ export interface Item {
   specifications: Record<string, any>;
 }
 
-// ✅ เพิ่ม Type นี้เข้าไปครับ
 export interface AdminBooking {
   booking_id: number;
   user_name: string;
