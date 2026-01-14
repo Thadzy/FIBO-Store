@@ -52,7 +52,6 @@ export default function AdminDashboard() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch both endpoints initially to populate stats, or optimize based on tab
       const [bookingsRes, itemsRes] = await Promise.all([
         fetch(`${API_URL}/admin/bookings`),
         fetch(`${API_URL}/items`)
@@ -120,7 +119,7 @@ export default function AdminDashboard() {
    * UI Helper: Status Badge
    */
   const getStatusBadge = (status: string) => {
-    const config: Record<string, { color: string, icon: JSX.Element }> = {
+    const config: Record<string, { color: string, icon: React.ReactNode }> = {
       Pending: {
         color: "bg-amber-100 text-amber-700 border-amber-200",
         icon: (
