@@ -234,10 +234,10 @@ export default function Home() {
             )}
           </>
         )}
-        <div className="mt-10 p-4 bg-slate-900 text-green-400 font-mono text-xs rounded-lg overflow-auto">
+        {/* <div className="mt-10 p-4 bg-slate-900 text-green-400 font-mono text-xs rounded-lg overflow-auto">
           <p className="font-bold text-white mb-2">DEBUG: CURRENT SESSION DATA</p>
           <pre>{JSON.stringify(session, null, 2)}</pre>
-        </div>
+        </div> */}
       </main>
 
       <CartSidebar
