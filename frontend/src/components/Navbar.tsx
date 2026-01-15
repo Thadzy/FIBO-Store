@@ -17,8 +17,7 @@ interface NavbarProps {
 
 /**
  * Navbar Component
- * * The primary navigation header for the application.
- * Contains the Logo, Navigation Links, Search Bar, Cart Indicator, and User Profile/Auth controls.
+ * The primary navigation header for the application.
  */
 export default function Navbar({
   cartCount,
@@ -26,7 +25,6 @@ export default function Navbar({
   searchTerm,
   onSearchChange,
 }: NavbarProps) {
-  // Retrieve session data to determine authentication status
   const { data: session } = useSession();
 
   return (
@@ -36,7 +34,6 @@ export default function Navbar({
           
           {/* --- LEFT: LOGO --- */}
           <Link href="/" className="flex items-center gap-3 group">
-            {/* Logo Image Container */}
             <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-md shadow-orange-500/10 p-1.5 overflow-hidden border border-slate-100 group-hover:scale-105 transition-transform">
               <Image
                 src="/FIBO.png" 
@@ -48,7 +45,6 @@ export default function Navbar({
               />
             </div>
             
-            {/* Logo Text */}
             <div className="flex flex-col">
               <span className="text-2xl font-black text-blue-900 tracking-tighter leading-none group-hover:text-orange-600 transition-colors">
                 FIBO
@@ -63,7 +59,7 @@ export default function Navbar({
           </Link>
 
           {/* --- MIDDLE: MENU LINKS --- */}
-          {/* --- MIDDLE: MENU LINKS --- */}
+          {/* Note: 'hidden md:flex' hides these links on mobile screens */}
           <div className="hidden md:flex items-center space-x-1">
             <Link
               href="/"
@@ -72,7 +68,6 @@ export default function Navbar({
               Home
             </Link>
             
-            {/* ✅ NEW: Active Loans Link */}
             <Link
               href="/active"
               className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -120,18 +115,8 @@ export default function Navbar({
               aria-label="Open cart"
               className="relative p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-full transition-all active:scale-95"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                />
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
               {cartCount > 0 && (
                 <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-500 rounded-full border-2 border-white">
@@ -144,7 +129,6 @@ export default function Navbar({
 
             {/* --- LOGIN / PROFILE SECTION --- */}
             {session ? (
-              // Authenticated State: User Profile & Logout
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end hidden lg:flex">
                   <span className="text-xs font-bold text-slate-700">
@@ -157,10 +141,7 @@ export default function Navbar({
 
                 <div className="relative group">
                   <img
-                    src={
-                      session.user?.image ||
-                      "https://ui-avatars.com/api/?name=User"
-                    }
+                    src={session.user?.image || "https://ui-avatars.com/api/?name=User"}
                     alt="User Profile"
                     className="w-9 h-9 rounded-full border-2 border-slate-100 shadow-sm object-cover"
                   />
@@ -180,7 +161,6 @@ export default function Navbar({
                 </div>
               </div>
             ) : (
-              // Unauthenticated State: Login Button
               <button
                 type="button"
                 onClick={() => signIn("google")}
