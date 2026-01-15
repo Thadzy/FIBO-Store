@@ -10,44 +10,67 @@ import EditItemModal from "@/components/EditItemModal";
 import { Item, AdminBooking } from "@/types";
 
 /**
- * API Base URL retrieved from environment variables.
+ * Base API endpoint retrieved from environment variables.
+ * Ensures the client communicates with the correct backend environment (Dev/Prod).
  */
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 /**
  * AdminDashboard Component
- * A modernized dashboard for managing bookings and inventory.
+ * * This component serves as the central management hub for administrators.
+ * It provides two main views:
+ * 1. Bookings Management: View, approve, reject, or close student equipment requests.
+ * 2. Inventory Management: Monitor stock levels, add new items, edit details, or delete assets.
+ * * Access Control: Restricted to users with the 'admin' role via NextAuth session validation.
  */
 export default function AdminDashboard() {
+  // Authentication hook to retrieve user session and role
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // State management
+  // --- State Management ---
+  
+  // Controls the active view between "bookings" and "inventory"
   const [activeTab, setActiveTab] = useState<"bookings" | "inventory">("bookings");
+  
+  // Data repositories for the dashboard tables
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  
+  // UI loading state to provide visual feedback during data synchronization
   const [loading, setLoading] = useState(false);
 
-  // Modal state
+  // --- Modal Visibility State ---
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  // Holds the specific item object currently being edited; null if no edit is in progress
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
-  // Derived Stats for Dashboard Overview
+  // --- Analytics / Derived State ---
+  
+  // Real-time calculation of pending requests for the "Attention Needed" statistic
   const pendingCount = bookings.filter(b => b.status === "Pending").length;
+  
+  // Real-time calculation of items with critical stock levels (threshold < 5)
   const lowStockCount = items.filter(i => i.available_quantity < 5).length;
 
   /**
-   * Effect: Authentication Check
+   * Effect: Authorization Guard
+   * Redirects unauthenticated users or non-admins to the home page.
+   * Runs whenever the authentication status or session data changes.
    */
   useEffect(() => {
-    if (status === "loading") return;
+    if (status === "loading") return; // Wait for session initialization
     if (status === "unauthenticated" || session?.user?.role !== "admin") {
       router.replace("/");
     }
   }, [status, session, router]);
 
   /**
-   * Data Fetching Logic
+   * Data Synchronization Logic
+   * Fetches both bookings and inventory data concurrently using Promise.all
+   * to reduce total network wait time.
+   * * Wrapped in useCallback to ensure referential stability for dependency arrays.
    */
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -73,6 +96,10 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  /**
+   * Effect: Initial Data Load
+   * Triggers the data fetch once the user is confirmed as an admin.
+   */
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "admin") {
       fetchData();
@@ -80,7 +107,11 @@ export default function AdminDashboard() {
   }, [status, session, fetchData]);
 
   /**
-   * Action Handlers
+   * Handler: Update Booking Status
+   * Sends a PATCH request to modify the status of a specific booking.
+   * Uses a promise toast to provide feedback on the asynchronous operation.
+   * * @param id - The ID of the booking to update.
+   * @param newStatus - The target status ('Approved', 'Rejected', 'Returned').
    */
   const handleStatusUpdate = async (id: number, newStatus: string) => {
     if (!confirm(`Update status to "${newStatus}"?`)) return;
@@ -99,9 +130,17 @@ export default function AdminDashboard() {
       success: 'Status updated.',
       error: 'Update failed.',
     });
+    
+    // Refresh local data to reflect server-side changes
     fetchData();
   };
 
+  /**
+   * Handler: Delete Inventory Item
+   * Permanently removes an item from the database.
+   * Includes error handling for cases where the item cannot be deleted (e.g., currently booked).
+   * * @param id - The ID of the item to delete.
+   */
   const handleDeleteItem = async (id: number) => {
     if (!confirm("Permanently delete this item?")) return;
 
@@ -116,7 +155,10 @@ export default function AdminDashboard() {
   };
 
   /**
-   * UI Helper: Status Badge
+   * Helper: Generate Status Badge
+   * Returns a visual component representing the booking status.
+   * Uses a configuration object pattern to map status strings to Tailwind CSS classes.
+   * * @param status - The status string from the database.
    */
   const getStatusBadge = (status: string) => {
     const config: Record<string, { color: string, icon: React.ReactNode }> = {
@@ -143,6 +185,7 @@ export default function AdminDashboard() {
       },
     };
 
+    // Fallback to "Pending" style if status is unknown
     const style = config[status] || config["Pending"];
 
     return (
@@ -153,14 +196,18 @@ export default function AdminDashboard() {
     );
   };
 
+  // --- Render Protection ---
+  // Show loading state while checking session
   if (status === "loading") return <div className="flex h-screen justify-center items-center text-slate-400">Loading Dashboard...</div>;
+  
+  // Return null if unauthorized (redirection handled by useEffect)
   if (session?.user?.role !== "admin") return null;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       <Toaster position="top-right" />
 
-      {/* --- Top Navigation --- */}
+      {/* --- Top Navigation Bar --- */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -193,8 +240,9 @@ export default function AdminDashboard() {
 
       <main className="max-w-7xl mx-auto p-6 space-y-6">
 
-        {/* --- Dashboard Stats Overview --- */}
+        {/* --- KPI / Stats Overview --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Stat: Pending Requests */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Pending Requests</p>
@@ -206,6 +254,8 @@ export default function AdminDashboard() {
               </svg>
             </div>
           </div>
+
+          {/* Stat: Low Stock Alerts */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Low Stock Items</p>
@@ -217,6 +267,8 @@ export default function AdminDashboard() {
               </svg>
             </div>
           </div>
+
+          {/* Stat: Total Inventory Count */}
           <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-sm flex items-center justify-between text-white">
             <div>
               <p className="text-sm font-medium text-blue-100">Total Inventory</p>
@@ -230,7 +282,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* --- Tab Control --- */}
+        {/* --- Tab Navigation Controls --- */}
         <div className="flex justify-between items-center">
           <div className="bg-slate-200/50 p-1 rounded-lg inline-flex">
             <button
@@ -249,6 +301,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
+          {/* Action Button: Only visible in Inventory tab */}
           {activeTab === "inventory" && (
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -262,7 +315,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* --- Main Data Table Card --- */}
+        {/* --- Main Data Presentation Area --- */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[500px]">
           {loading ? (
             <div className="flex flex-col justify-center items-center h-96 text-slate-400 gap-3">
@@ -271,7 +324,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <>
-              {/* ---------------- View 1: Bookings ---------------- */}
+              {/* ---------------- View 1: Bookings Management ---------------- */}
               {activeTab === "bookings" && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -374,7 +427,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* ---------------- View 2: Inventory ---------------- */}
+              {/* ---------------- View 2: Inventory Management ---------------- */}
               {activeTab === "inventory" && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -451,7 +504,7 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* Modals */}
+      {/* --- Modal Integrations --- */}
       <AddItemModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
