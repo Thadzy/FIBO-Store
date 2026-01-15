@@ -63,6 +63,7 @@ export default function Navbar({
           </Link>
 
           {/* --- MIDDLE: MENU LINKS --- */}
+          {/* --- MIDDLE: MENU LINKS --- */}
           <div className="hidden md:flex items-center space-x-1">
             <Link
               href="/"
@@ -70,17 +71,25 @@ export default function Navbar({
             >
               Home
             </Link>
+            
+            {/* ✅ NEW: Active Loans Link */}
+            <Link
+              href="/active"
+              className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+            >
+              Active Loans
+            </Link>
 
             {/* Admin Console Link (Conditional Render) */}
             {session?.user?.role === "admin" && (
-              <Link
-                href="/admin"
-                className="px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-              >
-                Admin Console
-              </Link>
+                <Link
+                  href="/admin"
+                  className="px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+                >
+                  Admin Console
+                </Link>
             )}
-
+            
             <Link
               href="/history"
               className="px-3 py-2 text-sm font-medium text-slate-600 hover:text-blue-900 hover:bg-slate-50 rounded-lg transition-colors"
