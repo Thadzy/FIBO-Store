@@ -5,11 +5,20 @@ import React, { useState, useEffect } from "react";
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (data: { pickupDate: string; returnDate: string; purpose: string }) => void;
+  onConfirm: (data: {
+    pickupDate: string;
+    returnDate: string;
+    purpose: string;
+  }) => void;
   loading: boolean;
 }
 
-export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: CheckoutModalProps) {
+export default function CheckoutModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  loading,
+}: CheckoutModalProps) {
   const [pickupDate, setPickupDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [subject, setSubject] = useState("");
@@ -19,15 +28,80 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
   const today = new Date().toISOString().split("T")[0];
 
   // Subjects List for Dropdown
+  // Subjects List for Dropdown (Extracted from FIBO Curriculum 2567)
   const subjects = [
-    "FRA141 Computer Programming",
+    // --- 1. General Education & Foundation ---
+    "GEN111 Man and Ethics of Living",
+    "GEN121 Learning and Problem Solving Skills",
+    "GEN231 Miracle of Thinking",
+    "GEN241 Beauty of Life",
+    "GEN351 Modern Management and Leadership",
+    "LNG120 General English",
+    "LNG220 Academic English",
+    "LNG324 English for Engineers",
+    "MTH101 Mathematics I",
+    "MTH102 Mathematics II",
+    "MTH201 Mathematics III",
+    "STA302 Statistics for Engineers",
+    "FRA114 General Physics for Robotics",
+
+    // --- 2. Robotics Core (Compulsory) ---
+    "FRA111 Basic Drawing Skill",
+    "FRA112 Basic Electronic Skill",
+    "FRA113 Tools and Safety in Workshop",
+    "FRA121 Electronic Circuits for Robotics",
+    "FRA130 Statics and Strength of Material",
+    "FRA131 Basic Kinematics Analysis",
+    "FRA141 Computer Programming I",
+    "FRA142 Object Oriented Programming",
+    "FRA143 Software Development for Robotics",
     "FRA161 Robotics Exploration",
-    "FRA111 Basic Drawing",
-    "FRA221 Digital Electronics",
-    "FRA231 Static",
-    "FRA241 Data Structure",
+    "FRA162 Robotics Studio I: Scientific Process",
+    "FRA163 Robotics Studio I: Science in Motion",
+    "FRA221 Basic Digital Electronics",
+    "FRA222 Basic Microcontroller Interfaces",
+    "FRA232 Robot Structure Design",
+    "FRA233 Control Engineering for Robotics",
+    "FRA261 Robotics Studio II: Validation",
+    "FRA262 Robotics Studio II: Innovation",
+    "FRA263 Robotics Studio III: Engineering Process",
+    "FRA264 Robotics Studio III: Industrial Automation",
+    "FRA271 Robotics Modelling and Experimentation",
+    "FRA272 Microcontroller for Robotics",
+    "FRA300 Industrial Training",
+    "FRA311 Robotics Seminar",
+    "FRA341 Basic Image Processing",
+    "FRA342 Basic Artificial Intelligence",
+    "FRA343 Basic Machine Learning",
+    "FRA361 Robotics Studio IV: Technology Feasibility",
+    "FRA362 Robotics Studio IV: Innovation",
+    "FRA363 Robotics Studio V: Independent Project",
+    "FRA364 Robotics Studio V: Professionalism",
+    "FRA371 Kinematics of Robot Serial Manipulator",
+    "FRA400 Research Methodology",
+    "FRA461 Robotics Project I",
+    "FRA462 Robotics Project II",
+    "FRA463 Work Integrated Learning I",
+    "FRA464 Work Integrated Learning II",
+
+    // --- 3. Robotics Electives ---
+    "FRA401 Technopreneurship Foundation",
+    "FRA421 Embedded System",
+    "FRA431 Computer-aided Technologies",
+    "FRA441 Algorithm for Robotics",
+    "FRA442 Game Development and Simulation",
+    "FRA451 Managing Technology & Innovation",
+    "FRA471 Industrial Robots and Manufacturing",
+    "FRA511 Designing Your Life",
+    "FRA521 Robot Grippers",
+    "FRA541 Machine Learning",
+    "FRA542 Product Design and Development",
+    "FRA571 Mobile Robotics",
+
+    // --- 4. Other ---
     "Senior Project",
-    "Personal Project"
+    "Personal Project",
+    "FIBOX"
   ];
 
   if (!isOpen) return null;
@@ -42,22 +116,37 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
           <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
             Requisition Details
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-slate-100">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-slate-100"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-
           {/* Date Grid */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Pickup Date</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">
+                Pickup Date
+              </label>
               <input
                 type="date"
                 required
@@ -68,7 +157,9 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Return Date</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">
+                Return Date
+              </label>
               <input
                 type="date"
                 required
@@ -82,7 +173,9 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
 
           {/* Subject with Datalist (Dropdown + Search) */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Subject / Purpose</label>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Subject / Purpose
+            </label>
             <input
               list="subjects-list"
               required
@@ -101,7 +194,9 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
 
           {/* Optional Details */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Additional Details (Optional)</label>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Additional Details (Optional)
+            </label>
             <textarea
               placeholder="e.g. Group 5, Lab 2..."
               className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none h-20 resize-none text-slate-700"
@@ -111,10 +206,18 @@ export default function CheckoutModal({ isOpen, onClose, onConfirm, loading }: C
           </div>
 
           <div className="pt-2 flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+            >
               Cancel
             </button>
-            <button type="submit" disabled={loading} className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 shadow-lg shadow-orange-200 disabled:bg-slate-300 disabled:shadow-none transition-all flex items-center justify-center gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-bold hover:bg-orange-600 shadow-lg shadow-orange-200 disabled:bg-slate-300 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+            >
               {loading ? "Submitting..." : "Confirm Requisition"}
             </button>
           </div>
