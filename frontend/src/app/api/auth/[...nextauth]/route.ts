@@ -1,6 +1,11 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+const ADMIN_EMAILS = [
+  "thadchai.suks@mail.kmutt.ac.th", 
+  // Add other admins here if needed
+];
+
 const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -9,38 +14,35 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    // 1. Check KMUTT Email
     async signIn({ user }) {
       if (user.email?.endsWith("@mail.kmutt.ac.th")) {
-        return true;
+        return true; 
       }
-      return false;
+      console.log("Access Denied: Non-KMUTT email");
+      return false; 
     },
 
+    // 2. Assign Role
     async jwt({ token, user }) {
       if (user && user.email) {
-        // --- DEBUGGING START ---
-        const envAdmins = process.env.ADMIN_EMAILS || "";
-        const adminList = envAdmins.split(",").map(e => e.trim().toLowerCase());
+        // Force lowercase comparison to avoid case-sensitivity issues
         const userEmail = user.email.toLowerCase();
-        const isAdmin = adminList.includes(userEmail);
+        const isAdmin = ADMIN_EMAILS.includes(userEmail);
 
-        console.log("---------------------------------------");
-        console.log("DEBUG AUTH LOG:");
-        console.log("1. Environment Variable Raw:", envAdmins);
-        console.log("2. Parsed Admin List:", adminList);
-        console.log("3. User Email:", userEmail);
-        console.log("4. Is Admin?", isAdmin);
-        console.log("---------------------------------------");
-        // --- DEBUGGING END ---
-
+        console.log(`Checking Admin: ${userEmail} -> ${isAdmin ? "YES" : "NO"}`);
+        
         token.role = isAdmin ? "admin" : "student";
+        token.id = user.id;
       }
       return token;
     },
 
+    // 3. Pass to Frontend
     async session({ session, token }) {
       if (session.user) {
         session.user.role = token.role as string;
+        session.user.id = token.id as string;
       }
       return session;
     },
