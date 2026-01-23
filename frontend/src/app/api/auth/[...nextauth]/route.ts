@@ -8,6 +8,7 @@ import GoogleProvider from "next-auth/providers/google";
  */
 const ADMIN_EMAILS = [
   "thadchai.suks@mail.kmutt.ac.th", 
+  "pirakran.you01@mail.kmutt.ac.th"
   // Future admin emails should be appended here
 ];
 
